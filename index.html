@@ -1,0 +1,50 @@
+<html>
+  <head>
+    <title>WebR SVG and PNG Plot Download Example</title>
+  </head>
+  <body>
+    <h1>WebR SVG and PNG Plot Download Example</h1>
+    <p id="loading">Please wait, webR is working on producing a plot...</p>
+    <p id="link-container"></p>
+    <div id="svg-container"></div>
+    <script type="module">
+      import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
+      const webR = new WebR();
+      await webR.init();
+      await webR.installPackages(['svglite','ggplot2']);
+
+      // Create a svg file containing a plot
+      await webR.evalRVoid(`
+        svglite::svglite('/home/web_user/Rplots.svg')
+		library(ggplot2)
+		data=data.frame(value=rnorm(100))
+		p <- ggplot(data, aes(x=value)) + geom_histogram()
+		print(p)
+        dev.off()
+		png('/home/web_user/Rplots.png', width = 800, height = 800, res = 144)
+		print(p)
+		dev.off()
+      `);
+
+      // Obtain the contents of the file from the VFS
+      const plotData1 = await webR.FS.readFile('/home/web_user/Rplots.svg');
+	  const plotData2 = await webR.FS.readFile('/home/web_user/Rplots.png');
+
+      // Create a link for the user to download the file contents
+      const blob = new Blob([plotData2], { type: 'application/octet-stream' });
+      const link = document.createElement('a');
+      link.download = 'Rplots.png';
+      link.href = URL.createObjectURL(blob);
+      link.textContent = 'Click to download PNG file';
+      document.getElementById('link-container').appendChild(link);
+
+      // Display the SVG directly in the HTML
+      const svgText = new TextDecoder().decode(plotData1);
+      const svgContainer = document.getElementById('svg-container');
+      svgContainer.innerHTML = svgText;
+
+      // Everything is ready, remove the loading message
+      document.getElementById('loading').remove();
+    </script>
+  </body>
+</html>
